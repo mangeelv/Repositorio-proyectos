@@ -1,0 +1,340 @@
+"""
+rsa.py
+
+Matemática Discreta - IMAT
+ICAI, Universidad Pontificia Comillas
+
+Grupo: GP04
+Integrantes:
+    - María González
+    - Miguel Ángel Vallejo
+
+Descripción:
+Librería para la realización de cifrado y descifrado usando el algoritmo RSA.
+"""
+import modular as md
+from typing import Tuple,List
+import random
+import pandas as pd
+
+
+def generar_claves(min_primo:int,max_primo:int)-> Tuple[int,int,int]:
+    """Toma dos primos entre min_primo (incluido) y max_primo (excluido) y devuelve
+    n,e,d
+    donde (n,e) es la clave pública y d la clave privada para RSA
+
+    Args:
+        min_primo (int): Límite inferior para los primo p1 y p2 usados en la clave
+        max_primo (int): Límite superior para los primo p1 y p2 usados en la clave
+
+    
+    Returns:
+        n (int): Módulo para RSA, formado por el producto de dos primos p1 y p2 tales que
+            min_primo<=p1, p2 < max_primo
+        e (int): Exponente de la clave pública para RSA con módulo n=p1*p2
+        d (int): Exponente de la clave privada para RSA con módulo n
+
+    Raises: None
+    """
+    # Cambiamos la salida lista de primos de string a lista
+    lista_primos = md.lista_primos(min_primo,max_primo)
+    lista_primos = lista_primos.split(',')
+    conversor_int = lambda numero:int(numero)
+    lista_primos = map(conversor_int,lista_primos)
+    lista_primos= list(lista_primos)
+    # print(lista_primos)
+    l = len(lista_primos)
+    indice_1 = random.randint(0,l-1)
+    indice_2 = random.randint(0,l-1)
+    while indice_2 == indice_1:
+        indice_2 = random.randint(0,l-1) # l-1 porque si coge l daría index error
+    # print(indice_1,indice_2)
+    p = lista_primos[indice_1]
+    q = lista_primos[indice_2]
+    n = p*q
+    phi_n = (p-1)*(q-1)
+    while True:
+        r = random.randint(3,phi_n-1)
+        comparacion = md.coprimos(phi_n,r)
+        if comparacion == 'Sí':
+            break
+    e = r
+    d = md.inversa_mod_p(e,phi_n)
+    return n, e, d
+# print(generar_claves(12345678901234567891,12345678901234567899))
+def aplicar_padding(m:int,digitos_padding:int)->int:
+    """Dado un mensaje y un número de dígitos de padding, añade
+    digitos_padding cifras aleatorias a la derecha del mensaje
+    
+    Args:
+        m (int): Mensaje sin padding
+        digitos_padding (int): Número de cifras de padding
+
+    
+    Returns:
+        int: entero formado por los dígitos de m seguidos de digitos_padding cifras aleatorias.
+
+    Raises: None
+
+    Example:
+        aplicar_padding(24,2)=2419
+        aplicar_padding(24,2)=2403
+        aplicar_padding(24,3)=24718
+        aplicar_padding(24,3)=24845
+    """
+    m = str(m) # pasamos a string para poder concatenar numeros
+    for i in range(digitos_padding):
+        digito = random.randint(0,9) # añadimos un dígito en cada iteración
+        m += str(digito)
+    m = int(m) # pasamos el mensaje a entero
+    return m
+# numeros = aplicar_padding(12,400)
+#print(numeros)
+
+
+def eliminar_padding(m:int,digitos_padding:int)->int:
+    """Dado un mensaje con padding de digitos_padding cifras al
+    final del mismo, elimina dichas cifras aleatorias y devuelve
+    el resto de cifras del mensaje
+
+    Args:
+        m (int): Mensaje con padding
+        digitos_padding (int): Número de cifras de padding
+
+    
+    Returns:
+        int: entero resultante de eliminar las últimas digitos_padding cifras de m.
+
+    Raises: None
+    
+    Example:
+        aplicar_padding(2454,1)=245
+        aplicar_padding(2454,2)=24
+        aplicar_padding(2454,3)=2
+        aplicar_padding(2432,2)=24
+    """
+    if digitos_padding == 0:
+        return m
+    else:
+        m = str(m)
+        m = m[:-digitos_padding] # eliminamos los últimos dígitos padding
+        m = int(m)
+        return m
+# print(eliminar_padding(numeros,400))
+def cifrar_rsa(m:int,n:int,e:int,digitos_padding:int)->int:
+    """Dado un mensaje m entero, un módulo y exponente que formen parte
+    de una clave pública de RSA, con m<n*10^{-digitos_padding}, y un número
+    de dígitos de padding, aplica el padding al mensaje y lo cifra
+    usando RSA con módulo n y exponente e.
+    
+    Args:
+        m (int): Mensaje original claro (sin padding)
+        n (int): Módulo de la clave pública de RSA
+        e (int): Exponente de la clave pública de RSA
+        digitos_padding (int): Número de cifras de padding
+
+    
+    Returns:
+        int: entero resultante de agregar el padding a m y aplicar RSA.
+
+    Raises: None
+    """ 
+    m = aplicar_padding(m,digitos_padding) 
+    c = md.potencia_mod_p(m,e,n)
+    return c 
+
+def descifrar_rsa(c:int,n:int,d:int,digitos_padding:int)->int:
+    """Dado un cifrado c entero que haya sido cifrado con RSA usando
+    digitos_padding cifras de padding al final del mensaje y el 
+    módulo y exponente privado, n y d que formen la clave privada de RSA cuya pareja se
+    utilizó para cifrar c, descifra c y elimina el padding, devolviendo
+    el mensaje original.
+
+    Args:
+        c (int): Mensaje original claro (sin padding)
+        n (int): Módulo de la clave pública de RSA usado para cifrar
+        d (int): Exponente de la clave privada de RSA cuya pareja se utilizó para cifrar c
+        digitos_padding (int): Número de cifras de padding usados para cifrar c
+
+    
+    Returns:
+        int: entero resultante de descifrar c usando RSA con módulo m y exponente e y después eliminar el padding al resultado.
+
+    Raises: None
+    """
+    m = md.potencia_mod_p(c,d,n) # desciframos el mensaje cifrado c
+    m = eliminar_padding(m,digitos_padding) # eliminamos los dígitos de padding
+    return m 
+
+'''
+claves = generar_claves(1000,10000)
+n = 1599020113 # claves[0]
+e = 1570139911 # claves[1]
+d = 893897591 # claves[2]
+print(f'Claves {n,e,d}')
+c = cifrar_rsa(1123456789,n,e,1)
+print(f'Mensaje cifrado: {c}')
+m = descifrar_rsa(c,n,d,1)
+print(f'Mensaje descifrado {m}')
+'''
+  
+
+def codificar_cadena(s:str)->List[int]:
+    """Convierte una cadena de caracteres a la lista de
+    enteros que representa el valor unicode cada uno de sus caracteres.
+
+    Args:
+        s (str): cadena en texto plano
+
+    Returns:
+        int: lista de enteros que representan el código unicode de cada carácter de la cadena s.
+
+    Raises: None.
+
+    Example:
+        codificar_cadena("¡Hola mundo!")=[161, 72, 111, 108, 97, 32, 109, 117, 110, 100, 111, 33]
+    """
+    valores_acsii = [ord(letra) for letra in s]
+    return valores_acsii
+
+
+def decodificar_cadena(m:List[int])->str:
+    """Convierte una lista de enteros que representen caracteres unicode
+    en la cadena que representan.
+    
+    Args:
+        m (List[int]): lisa de enteros que representan los códigos unicode de una cadena de caracteres.
+    
+    Returns:
+        str: cadena que representan
+
+    Raises:
+        ValueError: Si alguno de los enteros no representa un caracter unicode válido.
+    
+    Example:
+        decodificar_cadena([161, 72, 111, 108, 97, 32, 109, 117, 110, 100, 111, 33])="¡Hola mundo!"
+    """
+    cadena = ''
+    for numero in m:
+        cadena += chr(numero)
+    return cadena
+
+
+def cifrar_cadena_rsa(s:str,n:int,e:int,digitos_padding:int)->List[int]:
+    """Encripta carácter a carácter una cadena de caracteres usando RSA con clave púbica (n,e)
+    y digitos_padding cifras de padding al final del mensaje y devuelve la lista de enteros
+    que representan el mensaje cifrado correspondiente.
+    Args:
+        s (str): texto claro
+        n (int): módulo para RSA
+        e (int): clave pública para RSA
+        digitos_padding (int): número de dígitos de padding que deben usarse para el cifrado del mensaje.
+    
+    Returns:
+        List[int]: lista de enteros que representa el mensaje cifrado con RSA para la clave dada.
+
+    Raises: None
+    """
+    numeros_asociados = codificar_cadena(s)
+    mensaje_cifrado = []
+    for numero in numeros_asociados:
+        mensaje_cifrado.append(cifrar_rsa(numero,n,e,digitos_padding))
+    return mensaje_cifrado
+
+
+def descifrar_cadena_rsa(cList:List[int],n:int,d:int,digitos_padding:int)->str:
+    """Dado un mensaje cifrado con RSA usando la clave pública cuya clave privada asociada es (n,d)
+    y digitos_padding cifras de padding al final del mensaje, devuelve la cadena orignal.
+    Args:
+        cList (List[int]): lisa de enteros que representan el mensaje cifrado
+        n (int): módulo para RSA
+        d (int): clave privada para RSA
+        digitos_padding (int): número de dígitos de padding usados para el cifrado de cList.
+    
+    Returns:
+        str: cadena que representa el texto claro correspondiente al mensaje cifrado cList.
+
+    Raises:
+        ValueError: Si, tras decodificar, alguno de los enteros del mensaje no representa un caracter unicode válido.    
+    """
+    numeros_descifrados = []
+    for numero in cList:
+        numero_descifrado = descifrar_rsa(numero,n,d,digitos_padding)
+        numeros_descifrados.append(numero_descifrado)
+    cadena = decodificar_cadena(numeros_descifrados)
+    return cadena
+
+'''
+claves = generar_claves(10000,100000)
+n = claves[0]
+e = claves[1]
+d = claves[2]
+digitos_padding = 7
+print(f'Claves {n,e,d}')
+cadena = 'hola'
+cadena_cifrada = cifrar_cadena_rsa(cadena,n,e,digitos_padding)
+print(f'Cadena cifrada: {cadena_cifrada}')
+print(len(str(cadena_cifrada[0])))
+cadena_descifrada = descifrar_cadena_rsa(cadena_cifrada,n,d,digitos_padding)
+print(f'Cadena descifrada: {cadena_descifrada}')
+'''
+
+def romper_clave(n:int,e:int)->int:
+    """A partir de una clave pública válida (n,e), recupera la clave privada d tal que
+    de = 1 (mod phi(n)).
+    
+    Args:
+        n (int): módulo para RSA
+        e (int): clave pública para RSA
+    
+    Returns:
+        int: clave privada d
+
+    Raises:
+        ValueError: Si no existe ninguna clave privada d compatible con la clave pública (n,e).
+    """
+    phi_n = md.euler(n)  # Si n es muy grande la gracia está en que esto es difícil
+    clave_privada = md.inversa_mod_p(e,phi_n)
+    return clave_privada
+
+'''
+claves = generar_claves(10000,1000000)
+n = claves[0]
+e = claves[1]
+d = claves[2]
+clave_privada = romper_clave(n,e)
+print(f'Clave privada: {clave_privada}')
+if clave_privada == d: print('Éxito True')
+else: print('Éxito False')
+'''
+
+def ataque_texto_elegido(cList:List[int],n:int,e:int)->str:
+    """Ejecuta un ataque de texto claro elegido sobre un mensaje que ha sido encriptado
+    con RSA plano sin usar padding a partir de su clave pública.
+
+    Args:
+        cList (List[int]): lisa de enteros que representan el mensaje cifrado
+        n (int): módulo para RSA
+        e (int): clave pública para RSA
+    
+    Returns:
+        str: texto plano descifrado para el mensaje cifrado cList
+
+    Raises:
+        ValueError: Si el mensaje no se corresponde con ningún texto plano que haya sido codificado con RSA sin padding.
+    """
+    d = romper_clave(n,e)
+    texto = descifrar_cadena_rsa(cList,n,d,0)
+    return texto
+
+'''
+# X
+n = 28282590191348679547
+e = 15780653617344828671
+X = '8630828944241094552 14776330905304766194 4842569036581725503 20980190400660326533 21857556142816524701 25777023659433805948 22749440338291372804 19746169375983354497 20980190400660326533 15792170862416865726 18608120468201529368 6668148546026848177 14776330905304766194 4842569036581725503 22749440338291372804 1311789732010833948 20980190400660326533 20554480259726460599 14776330905304766194 12717565007171403561 20980190400660326533 1523370796302586613 18608120468201529368 4842569036581725503 21857556142816524701 18608120468201529368 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 9752506857902334135 25777023659433805948 22749440338291372804 4842569036581725503 27735342771309849241 14776330905304766194 20980190400660326533 22749440338291372804 4842569036581725503 20980190400660326533 20554480259726460599 14776330905304766194 20554480259726460599 18608120468201529368 20980190400660326533 18608120468201529368 20980190400660326533 27735342771309849241 14776330905304766194 21857556142816524701 18608120468201529368 20980190400660326533 9752506857902334135 22749440338291372804 2593648050233843527 18608120468201529368 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 4842569036581725503 14776330905304766194 20980190400660326533 15792170862416865726 14776330905304766194 12717565007171403561 27735342771309849241 18608120468201529368 20980190400660326533 22749440338291372804 2593648050233843527 20980190400660326533 14356227971113333857 18608120468201529368 12717565007171403561 22323999023705590489 20980190400660326533 1311789732010833948 25777023659433805948 4842569036581725503 14776330905304766194 20980190400660326533 9752506857902334135 6214149683214360481 22749440338291372804 2593648050233843527 18608120468201529368 21667560935722731510 21667560935722731510 20980190400660326533 6214149683214360481 4842569036581725503 20980190400660326533 9752506857902334135 22749440338291372804 2593648050233843527 22749440338291372804 12717565007171403561 14776330905304766194 20980190400660326533 1523370796302586613 22749440338291372804 12717565007171403561 28272142292129573062 18608120468201529368 4842569036581725503 27735342771309849241 7861010050314625994 4842569036581725503 15173352728672516996 21667560935722731510 21667560935722731510 20980190400660326533 1523370796302586613 18608120468201529368 26206620538814045720 22749440338291372804 2593648050233843527 20980190400660326533 20554480259726460599 25777023659433805948 12717565007171403561 18608120468201529368 27735342771309849241 18608120468201529368 20980190400660326533 28144107392132733343 6214149683214360481 22749440338291372804 20980190400660326533 2593648050233843527 2593648050233843527 18608120468201529368 14356227971113333857 18608120468201529368 4842569036581725503 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 20554480259726460599 14776330905304766194 12717565007171403561 20980190400660326533 1311789732010833948 6214149683214360481 20980190400660326533 1523370796302586613 12717565007171403561 18608120468201529368 9752506857902334135 6214149683214360481 12717565007171403561 18608120468201529368 22323999023705590489 20980190400660326533 22749440338291372804 2593648050233843527 20980190400660326533 1810216277496967433 22749440338291372804 14356227971113333857 25777023659433805948 21857556142816524701 14776330905304766194 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 22749440338291372804 4842569036581725503 20980190400660326533 27735342771309849241 14776330905304766194 21857556142816524701 14776330905304766194 20980190400660326533 14356227971113333857 18608120468201529368 12717565007171403561 20980190400660326533 15792170862416865726 14776330905304766194 4842569036581725503 14776330905304766194 15792170862416865726 25777023659433805948 21857556142816524701 14776330905304766194 21667560935722731510 21667560935722731510 20980190400660326533 21857556142816524701 22749440338291372804 2593648050233843527 20980190400660326533 6214149683214360481 4842569036581725503 14776330905304766194 20980190400660326533 18608120468201529368 2593648050233843527 20980190400660326533 14776330905304766194 27735342771309849241 12717565007171403561 14776330905304766194 20980190400660326533 15792170862416865726 14776330905304766194 4842569036581725503 14237643400138015579 7861010050314625994 4842569036581725503 12601521022934061392 21667560935722731510 21667560935722731510 20980190400660326533 5884709894545495855 18608120468201529368 20980190400660326533 2593648050233843527 6214149683214360481 4842569036581725503 18608120468201529368 20980190400660326533 22749440338291372804 4842569036581725503 20980190400660326533 22749440338291372804 2593648050233843527 20980190400660326533 14356227971113333857 18608120468201529368 12717565007171403561 20980190400660326533 12717565007171403561 25777023659433805948 22749440338291372804 2593648050233843527 18608120468201529368 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 22749440338291372804 4842569036581725503 20980190400660326533 2593648050233843527 18608120468201529368 20980190400660326533 2593648050233843527 14776330905304766194 4842569036581725503 18608120468201529368 20980190400660326533 28272142292129573062 25777023659433805948 14356227971113333857 22749440338291372804 20980190400660326533 22749440338291372804 2593648050233843527 20980190400660326533 9752506857902334135 25777023659433805948 22749440338291372804 4842569036581725503 27735342771309849241 14776330905304766194 21667560935722731510 21667560935722731510 20980190400660326533 19874418287555674497 20980190400660326533 18608120468201529368 2593648050233843527 19746169375983354497 18608120468201529368 20980190400660326533 22749440338291372804 4842569036581725503 20980190400660326533 1523370796302586613 2593648050233843527 18608120468201529368 4842569036581725503 21857556142816524701 14776330905304766194 20980190400660326533 14356227971113333857 14776330905304766194 9752506857902334135 25777023659433805948 14356227971113333857 25777023659433805948 22749440338291372804 4842569036581725503 27735342771309849241 14776330905304766194 21667560935722731510 21667560935722731510 20980190400660326533 14776330905304766194 2593648050233843527 18608120468201529368 1311789732010833948 20980190400660326533 21857556142816524701 22749440338291372804 20980190400660326533 20554480259726460599 2593648050233843527 18608120468201529368 27735342771309849241 18608120468201529368 20980190400660326533 19874418287555674497 20980190400660326533 18608120468201529368 19746169375983354497 6214149683214360481 2593648050233843527 15173352728672516996 21667560935722731510 21667560935722731510 20980190400660326533 19874418287555674497 20980190400660326533 9752506857902334135 18608120468201529368 20980190400660326533 22749440338291372804 2593648050233843527 20980190400660326533 15792170862416865726 18608120468201529368 20554480259726460599 25777023659433805948 27735342771309849241 10413804642095300346 4842569036581725503 20980190400660326533 20554480259726460599 25777023659433805948 12717565007171403561 18608120468201529368 27735342771309849241 18608120468201529368 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 15792170862416865726 18608120468201529368 4842569036581725503 27735342771309849241 18608120468201529368 4842569036581725503 21857556142816524701 14776330905304766194 20980190400660326533 18608120468201529368 2593648050233843527 22749440338291372804 28272142292129573062 12717565007171403561 22749440338291372804 20980190400660326533 22749440338291372804 4842569036581725503 20980190400660326533 2593648050233843527 18608120468201529368 20980190400660326533 20554480259726460599 14776330905304766194 20554480259726460599 18608120468201529368 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 12057479541422939463 1311789732010833948 25777023659433805948 18608120468201529368 20980190400660326533 18608120468201529368 20980190400660326533 6214149683214360481 4842569036581725503 20980190400660326533 2593648050233843527 18608120468201529368 21857556142816524701 14776330905304766194 22323999023705590489 20980190400660326533 18608120468201529368 2593648050233843527 20980190400660326533 14776330905304766194 27735342771309849241 12717565007171403561 14776330905304766194 20980190400660326533 9319749784910798525 6214149683214360481 12717565007171403561 14776330905304766194 20554480259726460599 18608120468201529368 22323999023705590489 21667560935722731510 21667560935722731510 20980190400660326533 19874418287555674497 20980190400660326533 18608120468201529368 2593648050233843527 2593648050233843527 10413804642095300346 20980190400660326533 18608120468201529368 20980190400660326533 1311789732010833948 6214149683214360481 20980190400660326533 14237643400138015579 12717565007171403561 22749440338291372804 4842569036581725503 27735342771309849241 22749440338291372804 20980190400660326533 9319749784910798525 1311789732010833948 27735342771309849241 18608120468201529368 14356227971113333857 1523370796302586613 6214149683214360481 2593648050233843527 15173352728672516996'
+X = X.split(' ')
+conversor_int = lambda numero:int(numero)
+mensaje_cifrado = map(conversor_int,X)
+mensaje_cifrado= list(mensaje_cifrado)
+print(ataque_texto_elegido(mensaje_cifrado,n,e))
+'''

@@ -1,0 +1,2 @@
+Para reproducir los resultados del informe basta con ejecutar el notebook parte_2 desde la celda 'Lectura de modelos'. 
+Es necesario ejecutar todas las celdas anteriores a la sección de 'Fase de entrenamiento' (importación de librerías, definición de variables...) 
