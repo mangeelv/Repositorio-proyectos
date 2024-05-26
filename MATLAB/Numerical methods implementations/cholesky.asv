@@ -1,0 +1,36 @@
+function L = cholesky(A)
+
+    [nfilas,~] = size(A);
+    n = nfilas; %suponemos matrices cuadradas 
+
+    L = subs(eye(n),0,1);
+
+    for i = 1:n
+        for j = 1:n
+            if i == j
+                suma1 = 0;
+                for k = 1:i-1
+                    suma1 = suma1 + L(k,i)^2;
+                end
+                L(i,j) = sqrt((A(i,j)-suma1));
+            else
+                suma2 = 0;
+                for k=1:i-1
+                    suma2 = suma2 + L(k,i)*L(k,j);
+                end
+                L(i,j) = (A(i,j)-suma2) / L(j,j);
+
+
+            end
+
+        end
+
+
+
+    end 
+
+
+
+
+
+end
